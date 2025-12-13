@@ -4,7 +4,6 @@ import Tasks from "./components/Tasks";
 import ConfirmModal from "./components/ConfirmModal";
 
 import "./App.css";
-import { json } from "react-router-dom";
 import Title from "./components/Title";
 
 function App() {
@@ -22,19 +21,19 @@ function App() {
 
   // Quando passamos a array de dependências vazia, o useEffect só é executado uma vez, quando o componente é montado.
  useEffect(() => {
-  async function fetchInitialTasks() {
-    const response = await fetch(
-      "https://jsonplaceholder.typicode.com/todos?_limit=10"
-    );
-    if (!response.ok) {
-      throw new Error("Failed to fetch tasks");
-    }
-    const data = await response.json();
-    setTasks(data)
-    console.log(data);
-  }
+  // async function fetchInitialTasks() {
+  //   const response = await fetch(
+  //     "https://jsonplaceholder.typicode.com/todos?_limit=10"
+  //   );
+  //   if (!response.ok) {
+  //     throw new Error("Failed to fetch tasks");
+  //   }
+  //   const data = await response.json();
+  //   setTasks(data)
+  //   console.log(data);
+  // }
 
-  fetchInitialTasks();
+  // fetchInitialTasks();
 }, []);
 
   
@@ -79,7 +78,7 @@ function App() {
 
   // let message = "Good morning!";
   return (
-    <div className="w-screen h-full bg-slate-500 flex justify-center p-6 ">
+    <div className="w-screen min-h-screen bg-slate-500 flex justify-center p-6 ">
      <div className="w-[500px] space-y-4=6">
       <Title>Task Manager</Title>
       <AddTask test={SubmitTask}/>
