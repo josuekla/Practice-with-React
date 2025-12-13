@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import AddTask from "./components/AddTask";
 import Tasks from "./components/Tasks";
-import ConfirmModal from "./components/ConfirmModal";
 
 import "./App.css";
 import Title from "./components/Title";
@@ -47,19 +46,13 @@ function App() {
     setTasks(updatedTasks);
   }
 
-  function handleRequestDelete(taskId) {
-  setTaskToDelete(taskId);
-  setShowConfirmation(true);
-  }
 
-  function handleDelete() {
+  function handleDelete(taskId) {
   setTasks(prevTasks =>
-    prevTasks.filter(task => task.id !== taskToDelete)
+    prevTasks.filter(task => task.id !== taskId)
   );
-
-  setShowConfirmation(false);
-  // setTaskToDelete(null);
   }
+
 
 
   function SubmitTask(title, description) {
@@ -83,13 +76,7 @@ function App() {
       <Title>Task Manager</Title>
       <AddTask test={SubmitTask}/>
 
-      <Tasks tasks={tasks} onTaskClick={onTaskClick} onDeleteRequest={handleRequestDelete} />
-
-      <ConfirmModal 
-        open={showConfirmation}
-        onConfirm={handleDelete}
-        onCancel={() => setShowConfirmation(false)}
-      />
+      <Tasks tasks={tasks} onTaskClick={onTaskClick} handleDelete={handleDelete} />
 
      </div>
     </div>

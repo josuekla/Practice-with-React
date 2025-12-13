@@ -2,7 +2,7 @@ import { ChevronRightIcon, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Button  from "./Button.jsx";
 
-function Task({tasks, onTaskClick, onDeleteRequest}) {
+function Task({tasks, handleDelete}) {
     const navigate = useNavigate();
 
     function onNavigateToDetails(task) {
@@ -39,7 +39,7 @@ function Task({tasks, onTaskClick, onDeleteRequest}) {
                                 <ChevronRightIcon />
                             </Button>
                             <Button 
-                            onClick={() => onDeleteRequest(task.id)}
+                            onClick={() => handleDelete(task.id)}
                             className={`${task.isCompleted ? "" : 'bg-slate-200 p-1 rounded-md'}`} >
                                 <Trash2 />
                             </Button>
