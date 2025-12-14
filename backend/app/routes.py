@@ -4,7 +4,7 @@ from typing import List
 from app.models import Task, TaskCreate
 from app.database import get_session
 
-router = APIRouter()
+router = APIRouter(prefix="/api")
 
 @router.get("/tasks", response_model=List[Task])
 def get_tasks(session: Session = Depends(get_session)):

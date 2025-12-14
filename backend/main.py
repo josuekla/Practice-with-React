@@ -8,6 +8,8 @@ app = FastAPI()
 # Configuração de CORS
 origins = [
     "https://practice-with-react-uqap.vercel.app",
+    "https://practice-with-react-uqap.vercel.app/api",
+    "https://practice-with-react-uqap.vercel.app/api/tasks",
     "http://localhost:5173",
     "http://localhost:5174", 
 ]
