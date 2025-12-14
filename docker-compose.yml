@@ -1,0 +1,75 @@
+
+services:
+
+  # ==============================
+  # Serviço do Banco de Dados
+  # ==============================
+  db:
+    # Imagem oficial do PostgreSQL, versão 15
+    image: postgres:15
+
+    # Variáveis de ambiente usadas APENAS na criação inicial do banco
+    env_file:
+      - .env
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d taskdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+    # Volume para persistir os dados do PostgreSQL
+    # Sem isso, os dados seriam perdidos ao derrubar os containers
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    # Expõe a porta 5432 do container para a máquina host
+    # Útil para acessar via DBeaver, pgAdmin, etc.
+    ports:
+      - "5432:5432"
+
+    # (Opcional, mas recomendado)
+    # Garante reinício automático se o container cair
+    # restart: unless-stopped
+
+
+  # ==============================
+  # Serviço do Backend (FastAPI)
+  # ==============================
+  backend:
+    # Constrói a imagem usando o Dockerfile dentro da pasta ./backend
+    build: ./backend
+
+    # Comando que inicia a aplicação FastAPI
+    # --reload reinicia o servidor quando o código muda (DEV only)
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+    # Volume para refletir o código local dentro do container
+    # Permite hot reload sem rebuild da imagem
+    volumes:
+      - ./backend:/app
+
+    # Expõe a API na porta 8000 da máquina host
+    ports:
+      - "8000:8000"
+
+    # Variáveis de ambiente do backend
+    env_file:
+      - .env
+  
+    # Define dependência de inicialização
+    # O container do banco sobe antes do backend
+    depends_on:
+      db:
+        condition: service_healthy
+
+    # (Opcional, mas recomendado)
+    # restart: unless-stopped
+
+
+# ==============================
+# Volumes nomeados
+# ==============================
+volumes:
+  # Volume persistente para os dados do PostgreSQL
+  postgres_data:
