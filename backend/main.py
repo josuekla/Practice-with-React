@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends
 from sqlmodel import SQLModel, Field, Session, create_engine, select
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from fastapi.middleware.cors import CORSMiddleware
 import os
@@ -49,8 +49,8 @@ app.add_middleware(
 
 # --- Modelos de Dados (SQLModel) ---
 # Função auxiliar para pegar a hora no Brasil
-def get_brazil_time():
-    return datetime.now(ZoneInfo("America/Sao_Paulo"))
+def get_utc_time():
+    return datetime.now(timezone.utc)
 
 # Agora a classe Task é uma Tabela no banco!
 class Task(SQLModel, table=True):
@@ -59,7 +59,7 @@ class Task(SQLModel, table=True):
     description: str
     isCompleted: bool = Field(default=False)
     created_at: datetime = Field(
-    default_factory=get_brazil_time,
+    default_factory=get_utc_time,
     nullable=False
 )
 

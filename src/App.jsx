@@ -31,7 +31,7 @@ function App() {
   async function onTaskClick(taskId) {
     try {
       // Chama a API para atualizar no banco
-      await fetch(`${API_URL}/api/tasks/${taskId}/toggle`, {
+      await fetch(`${API_URL}/tasks/${taskId}/toggle`, {
         method: "PATCH",
       });
 
@@ -52,7 +52,7 @@ function App() {
   async function handleDelete(taskId) {
     try {
       // Chama a API para deletar
-      await fetch(`${API_URL}/api/tasks/${taskId}`, {
+      await fetch(`${API_URL}/tasks/${taskId}`, {
         method: "DELETE",
       });
 
@@ -67,7 +67,7 @@ function App() {
 
   async function SubmitTask(title, description) {
     try {
-      const response = await fetch(`${API_URL}/api/tasks`, {
+      const response = await fetch(`${API_URL}/tasks`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -75,8 +75,11 @@ function App() {
         body: JSON.stringify({
           title,
           description,
-          created_at : new Date().toISOString(),
           isCompleted: false,
+          created_at: new Date().toLocaleString("pt-BR", {
+          timeZone: "America/Sao_Paulo"
+})
+
         }),
       });
 
