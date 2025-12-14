@@ -151,7 +151,3 @@ def toggle_task(task_id: int, session = Depends(get_session)):
 
 # Handler para Vercel Serverless
 handler = Mangum(app, lifespan="off")
-    return task
-
-# Handler para Vercel
-handler = app
