@@ -5,10 +5,17 @@ import os
 
 app = FastAPI()
 
+
+origins = [
+    "https://practice-with-react-uqap.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:5174",  # adicione a porta correta
+]
+
 # Configuração de CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -17,6 +24,24 @@ app.add_middleware(
 # --- Configuração do Banco de Dados (Lazy Loading) ---
 engine = None
 DATABASE_URL = None
+
+def clean_database_url(url):
+    """Limpa a URL do banco removendo parâmetros problemáticos"""
+    from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+    
+    parsed = urlparse(url)
+    params = parse_qs(parsed.query)
+    
+    # Remove parâmetros que podem causar problemas
+    for param in ['supa', 'options', 'schema']:
+        params.pop(param, None)
+    
+    # Adiciona sslmode se não existir
+    if 'sslmode' not in params:
+        params['sslmode'] = ['require']
+    
+    new_query = urlencode(params, doseq=True)
+    return urlunparse(parsed._replace(query=new_query))
 
 def get_engine():
     global engine, DATABASE_URL
@@ -32,12 +57,8 @@ def get_engine():
         if DATABASE_URL.startswith("postgres://"):
             DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
         
-        # SSL obrigatório para Supabase
-        if "sslmode" not in DATABASE_URL:
-            if "?" in DATABASE_URL:
-                DATABASE_URL += "&sslmode=require"
-            else:
-                DATABASE_URL += "?sslmode=require"
+        # Limpa a URL
+        DATABASE_URL = clean_database_url(DATABASE_URL)
         
         engine = create_engine(DATABASE_URL, pool_pre_ping=True)
     return engine
