@@ -11,21 +11,31 @@ function App() {
   const [tasks, setTasks] = useState([]);
 
   // Pega a URL da API das variáveis de ambiente ou usa localhost como fallback
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+  const API_URL = import.meta.env.VITE_API_URL;
 
   // Carregar tarefas da API ao iniciar
   useEffect(() => {
-    async function fetchTasks() {
-      try {
-        const response = await fetch(`${API_URL}/api/tasks`);
-        const data = await response.json();
-        setTasks(data);
-      } catch (error) {
-        console.error("Erro ao buscar tarefas:", error);
+  async function fetchTasks() {
+    try {
+      console.log("Buscando em:", `${API_URL}/tasks`);
+
+      const response = await fetch(`${API_URL}/tasks`);
+
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status}`);
       }
+
+      const data = await response.json();
+      console.log("Dados recebidos:", data);
+
+      setTasks(data);
+    } catch (error) {
+      console.error("Erro ao buscar tarefas:", error);
     }
-    fetchTasks();
-  }, []);
+  }
+
+  fetchTasks();
+}, [API_URL]);
 
   
   async function onTaskClick(taskId) {
