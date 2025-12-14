@@ -7,16 +7,21 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 
 # --- Configuração do Banco de Dados ---
-DATABASE_URL = os.environ.get("DATABASE_URL")
+# Supabase usa DATABASE_URL, Vercel usa POSTGRES_URL
+DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
 
 if not DATABASE_URL:
-    raise Exception("DATABASE_URL não está configurada!")
+    raise Exception("DATABASE_URL ou POSTGRES_URL não está configurada! Verifique as variáveis de ambiente.")
 
-# Ajuste necessário para Vercel Postgres (usa postgresql:// em vez de postgres://)
+# Ajuste necessário (alguns provedores usam postgres:// em vez de postgresql://)
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-engine = create_engine(DATABASE_URL)
+# Adiciona parâmetros de SSL para Supabase (necessário para conexão segura)
+if "sslmode" not in DATABASE_URL:
+    DATABASE_URL += "?sslmode=require"
+
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
@@ -66,16 +71,18 @@ class TaskCreate(SQLModel):
 # --- Rotas (Endpoints) ---
 
 @app.get("/")
-# @app.get("/api")
+@app.get("/api")
 def read_root():
     return {"message": "API de Tarefas rodando na Vercel!"}
 
+@app.get("/api/tasks", response_model=List[Task])
 @app.get("/tasks", response_model=List[Task])
 def get_tasks(session: Session = Depends(get_session)):
     """Retorna todas as tarefas do banco"""
     tasks = session.exec(select(Task)).all()
     return tasks
 
+@app.post("/api/tasks", response_model=Task)
 @app.post("/tasks", response_model=Task)
 def create_task(task_in: TaskCreate, session: Session = Depends(get_session)):
     """Cria uma nova tarefa no banco"""
@@ -85,6 +92,7 @@ def create_task(task_in: TaskCreate, session: Session = Depends(get_session)):
     session.refresh(task)
     return task
 
+@app.delete("/api/tasks/{task_id}")
 @app.delete("/tasks/{task_id}")
 def delete_task(task_id: int, session: Session = Depends(get_session)):
     """Deleta uma tarefa pelo ID"""
@@ -96,6 +104,7 @@ def delete_task(task_id: int, session: Session = Depends(get_session)):
     session.commit()
     return {"message": "Tarefa deletada com sucesso"}
 
+@app.patch("/api/tasks/{task_id}/toggle")
 @app.patch("/tasks/{task_id}/toggle")
 def toggle_task(task_id: int, session: Session = Depends(get_session)):
     """Marca/Desmarca uma tarefa como completa"""

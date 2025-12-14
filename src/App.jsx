@@ -10,8 +10,9 @@ function App() {
 
   const [tasks, setTasks] = useState([]);
 
-  // Pega a URL da API das variáveis de ambiente ou usa localhost como fallback
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+  // Pega a URL da API das variáveis de ambiente ou usa o próprio domínio
+  // Na Vercel, deixamos vazio para usar o mesmo domínio (ex: /api/tasks)
+  const API_URL = import.meta.env.VITE_API_URL || "";
 
   // Carregar tarefas da API ao iniciar
   useEffect(() => {
