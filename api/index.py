@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 
 # --- Configuração do Banco de Dados ---
-DATABASE_URL = os.environ.get("POSTGRES_URL")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if not DATABASE_URL:
     raise Exception("DATABASE_URL não está configurada!")
@@ -66,17 +66,17 @@ class TaskCreate(SQLModel):
 # --- Rotas (Endpoints) ---
 
 @app.get("/")
-@app.get("/api")
+# @app.get("/api")
 def read_root():
     return {"message": "API de Tarefas rodando na Vercel!"}
 
-@app.get("/api/tasks", response_model=List[Task])
+@app.get("/tasks", response_model=List[Task])
 def get_tasks(session: Session = Depends(get_session)):
     """Retorna todas as tarefas do banco"""
     tasks = session.exec(select(Task)).all()
     return tasks
 
-@app.post("/api/tasks", response_model=Task)
+@app.post("/tasks", response_model=Task)
 def create_task(task_in: TaskCreate, session: Session = Depends(get_session)):
     """Cria uma nova tarefa no banco"""
     task = Task.model_validate(task_in)
@@ -85,7 +85,7 @@ def create_task(task_in: TaskCreate, session: Session = Depends(get_session)):
     session.refresh(task)
     return task
 
-@app.delete("/api/tasks/{task_id}")
+@app.delete("/tasks/{task_id}")
 def delete_task(task_id: int, session: Session = Depends(get_session)):
     """Deleta uma tarefa pelo ID"""
     task = session.get(Task, task_id)
@@ -96,7 +96,7 @@ def delete_task(task_id: int, session: Session = Depends(get_session)):
     session.commit()
     return {"message": "Tarefa deletada com sucesso"}
 
-@app.patch("/api/tasks/{task_id}/toggle")
+@app.patch("/tasks/{task_id}/toggle")
 def toggle_task(task_id: int, session: Session = Depends(get_session)):
     """Marca/Desmarca uma tarefa como completa"""
     task = session.get(Task, task_id)

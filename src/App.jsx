@@ -11,7 +11,7 @@ function App() {
   const [tasks, setTasks] = useState([]);
 
   // Pega a URL da API das variáveis de ambiente ou usa localhost como fallback
-  const API_URL = import.meta.env.VITE_API_URL;
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
   // Carregar tarefas da API ao iniciar
   useEffect(() => {
