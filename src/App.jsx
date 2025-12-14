@@ -11,7 +11,7 @@ function App() {
   const [tasks, setTasks] = useState([]);
 
   // Pega a URL da API das variáveis de ambiente ou usa localhost como fallback
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
   // Carregar tarefas da API ao iniciar
   useEffect(() => {
@@ -75,20 +75,15 @@ function App() {
         body: JSON.stringify({
           title,
           description,
-          // O backend cuida da data e do status, não precisamos enviar
+          created_at : new Date().toISOString(),
+          isCompleted: false,
         }),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Erro ao criar tarefa");
-      }
 
       const newTask = await response.json();
       setTasks((prevTasks) => [...prevTasks, newTask]);
     } catch (error) {
       console.error("Erro ao criar tarefa:", error);
-      alert("Erro ao criar tarefa! Verifique o console (F12) para mais detalhes.\n\n" + error.message);
     }
   }
 
