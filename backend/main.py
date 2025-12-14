@@ -36,8 +36,7 @@ def on_startup():
 
 # Configuração de CORS
 origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
+    "https://practice-with-react-uqap.vercel.app",
 ]
 
 app.add_middleware(
