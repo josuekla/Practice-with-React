@@ -1,6 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from mangum import Mangum
 from typing import List, Optional
 import os
 
@@ -148,6 +147,3 @@ def toggle_task(task_id: int, session = Depends(get_session)):
     session.commit()
     session.refresh(task)
     return task
-
-# Handler para Vercel Serverless
-handler = Mangum(app, lifespan="off")

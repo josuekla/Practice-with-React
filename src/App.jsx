@@ -20,7 +20,7 @@ function App() {
     try {
       console.log("Buscando em:", `${API_URL}/tasks`);
 
-      const response = await fetch(`${API_URL}/tasks`);
+      const response = await fetch(`${API_URL}/api/tasks`);
 
       if (!response.ok) {
         throw new Error(`Erro HTTP: ${response.status}`);
