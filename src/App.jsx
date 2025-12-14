@@ -75,15 +75,20 @@ function App() {
         body: JSON.stringify({
           title,
           description,
-          created_at : new Date().toISOString(),
-          isCompleted: false,
+          // O backend cuida da data e do status, não precisamos enviar
         }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Erro ao criar tarefa");
+      }
 
       const newTask = await response.json();
       setTasks((prevTasks) => [...prevTasks, newTask]);
     } catch (error) {
       console.error("Erro ao criar tarefa:", error);
+      alert("Erro ao criar tarefa! Verifique o console (F12) para mais detalhes.\n\n" + error.message);
     }
   }
 
