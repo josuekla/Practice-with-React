@@ -37,3 +37,4 @@ build
 .eslintcache
 
 backend/venv
+backend/database.db
