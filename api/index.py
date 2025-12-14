@@ -1,42 +1,42 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Response
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 import os
+import traceback
 
 app = FastAPI()
 
-
-origins = [
-    "https://practice-with-react-uqap.vercel.app",
-    "http://localhost:5173",
-    "http://localhost:5174",  # adicione a porta correta
-]
-
-# Configuração de CORS
+# Configuração de CORS - permite tudo para debug
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- Configuração do Banco de Dados (Lazy Loading) ---
+# --- Configuração do Banco de Dados ---
 engine = None
-DATABASE_URL = None
 
-def clean_database_url(url):
-    """Limpa a URL do banco removendo parâmetros problemáticos"""
-    from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+def get_database_url():
+    """Obtém e limpa a URL do banco"""
+    url = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
     
+    if not url:
+        return None
+    
+    # Corrige protocolo
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    
+    # Remove parâmetros problemáticos e adiciona sslmode
+    from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
     parsed = urlparse(url)
     params = parse_qs(parsed.query)
     
-    # Remove parâmetros que podem causar problemas
     for param in ['supa', 'options', 'schema']:
         params.pop(param, None)
     
-    # Adiciona sslmode se não existir
     if 'sslmode' not in params:
         params['sslmode'] = ['require']
     
@@ -44,23 +44,13 @@ def clean_database_url(url):
     return urlunparse(parsed._replace(query=new_query))
 
 def get_engine():
-    global engine, DATABASE_URL
+    global engine
     if engine is None:
         from sqlmodel import create_engine
-        
-        DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
-        
-        if not DATABASE_URL:
+        url = get_database_url()
+        if not url:
             raise Exception("DATABASE_URL não configurada!")
-        
-        # Corrige protocolo para SQLAlchemy
-        if DATABASE_URL.startswith("postgres://"):
-            DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-        
-        # Limpa a URL
-        DATABASE_URL = clean_database_url(DATABASE_URL)
-        
-        engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+        engine = create_engine(url, pool_pre_ping=True)
     return engine
 
 def get_session():
@@ -68,7 +58,7 @@ def get_session():
     with Session(get_engine()) as session:
         yield session
 
-# --- Modelos de Dados ---
+# --- Modelos ---
 from sqlmodel import SQLModel, Field
 from datetime import datetime
 
@@ -90,87 +80,70 @@ class TaskCreate(SQLModel):
     title: str
     description: str
 
-# --- Criar tabelas ---
-tables_created = False
-
-def ensure_tables():
-    global tables_created
-    if not tables_created:
-        SQLModel.metadata.create_all(get_engine())
-        tables_created = True
-
 # --- Rotas ---
 
 @app.get("/")
 @app.get("/api")
 def read_root():
-    """Rota de teste - verifica se a API está rodando"""
-    db_status = "não configurado"
-    try:
-        url = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
-        if url:
-            db_status = "configurado ✓"
-    except:
-        pass
+    url = get_database_url()
     return {
-        "message": "API de Tarefas rodando!",
-        "database": db_status
+        "message": "API rodando!",
+        "database_configured": url is not None,
+        "env_vars": list(os.environ.keys())  # Debug: mostra variáveis disponíveis
     }
 
-@app.get("/api/health")
 @app.get("/health")
-def health_check():
-    """Verifica conexão com banco"""
+@app.get("/api/health")
+def health():
     try:
         from sqlmodel import Session, text
         with Session(get_engine()) as session:
             session.exec(text("SELECT 1"))
-        return {"status": "ok", "database": "connected"}
+        return {"status": "ok", "db": "connected"}
     except Exception as e:
-        return {"status": "error", "detail": str(e)}
+        return {"status": "error", "detail": str(e), "traceback": traceback.format_exc()}
 
-@app.get("/api/tasks", response_model=List[Task])
 @app.get("/tasks", response_model=List[Task])
+@app.get("/api/tasks", response_model=List[Task])
 def get_tasks(session = Depends(get_session)):
-    """Retorna todas as tarefas"""
-    from sqlmodel import select
-    ensure_tables()
-    tasks = session.exec(select(Task)).all()
-    return tasks
+    try:
+        from sqlmodel import select
+        SQLModel.metadata.create_all(get_engine())
+        return session.exec(select(Task)).all()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro: {str(e)}")
 
-@app.post("/api/tasks", response_model=Task)
 @app.post("/tasks", response_model=Task)
+@app.post("/api/tasks", response_model=Task)
 def create_task(task_in: TaskCreate, session = Depends(get_session)):
-    """Cria uma nova tarefa"""
-    ensure_tables()
-    task = Task(
-        title=task_in.title,
-        description=task_in.description,
-        isCompleted=False,
-        created_at=get_brazil_time()
-    )
-    session.add(task)
-    session.commit()
-    session.refresh(task)
-    return task
+    try:
+        SQLModel.metadata.create_all(get_engine())
+        task = Task(
+            title=task_in.title,
+            description=task_in.description,
+            isCompleted=False,
+            created_at=get_brazil_time()
+        )
+        session.add(task)
+        session.commit()
+        session.refresh(task)
+        return task
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro: {str(e)}")
 
-@app.delete("/api/tasks/{task_id}")
 @app.delete("/tasks/{task_id}")
+@app.delete("/api/tasks/{task_id}")
 def delete_task(task_id: int, session = Depends(get_session)):
-    """Deleta uma tarefa pelo ID"""
-    ensure_tables()
     task = session.get(Task, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Tarefa não encontrada")
     session.delete(task)
     session.commit()
-    return {"message": "Tarefa deletada com sucesso"}
+    return {"message": "Deletada"}
 
-@app.patch("/api/tasks/{task_id}/toggle")
 @app.patch("/tasks/{task_id}/toggle")
+@app.patch("/api/tasks/{task_id}/toggle")
 def toggle_task(task_id: int, session = Depends(get_session)):
-    """Marca/Desmarca uma tarefa como completa"""
-    ensure_tables()
     task = session.get(Task, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Tarefa não encontrada")
@@ -178,6 +151,10 @@ def toggle_task(task_id: int, session = Depends(get_session)):
     session.add(task)
     session.commit()
     session.refresh(task)
+    return task
+
+# Handler Vercel
+handler = app
     return task
 
 # Handler para Vercel
