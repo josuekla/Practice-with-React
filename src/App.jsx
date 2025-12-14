@@ -1,26 +1,23 @@
 import { useEffect, useState } from "react";
 import AddTask from "./components/AddTask";
 import Tasks from "./components/Tasks";
-
-import "./App.css";
 import Title from "./components/Title";
 
-function App() {
-  // States (Estado)
+import "./App.css";
 
+function App() {
   const [tasks, setTasks] = useState([]);
 
-  // Pega a URL da API das variáveis de ambiente ou usa o próprio domínio
-  // Na Vercel, deixamos vazio para usar o mesmo domínio (ex: /api/tasks)
-  const API_URL = import.meta.env.VITE_API_URL || "";
+  // Pega a URL da API das variáveis de ambiente ou usa localhost como fallback
+  const API_URL = import.meta.env.VITE_API_URL || "https://practice-with-react-uqap.vercel.app/";
 
   // Carregar tarefas da API ao iniciar
   useEffect(() => {
   async function fetchTasks() {
     try {
       console.log("Buscando em:", `${API_URL}/tasks`);
-
-      const response = await fetch(`${API_URL}/api/tasks`);
+      
+      const response = await fetch(`${API_URL}/tasks`);
 
       if (!response.ok) {
         throw new Error(`Erro HTTP: ${response.status}`);
