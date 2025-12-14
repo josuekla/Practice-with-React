@@ -2,7 +2,7 @@ import { ChevronRightIcon, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Button  from "./Button.jsx";
 
-function Task({tasks, handleDelete}) {
+function Task({tasks, onTaskClick, handleDelete}) {
     const navigate = useNavigate();
 
     function onNavigateToDetails(task) {
@@ -10,7 +10,7 @@ function Task({tasks, handleDelete}) {
             title: task.title,
             description: task.description,
             isCompleted: task.isCompleted,
-            createdAt: task.createdAt
+            createdAt: task.created_at
         }).toString();
         navigate(`/task?${queryParams}`);
     }
@@ -30,8 +30,13 @@ function Task({tasks, handleDelete}) {
                         <li key={task.id} className="flex justify-between items-center gap-3">
                             <button 
                                 onClick={() => onTaskClick(task.id)}
-                                className={` font-medium text-left bg-slate-200 p-2 rounded-md w-full text-left${task.isCompleted ? ' line-through' : ''}`}>
-                                {task.title}
+                                className={`flex flex-col items-start font-medium text-left bg-slate-200 p-2 rounded-md w-full ${task.isCompleted ? 'line-through opacity-70' : ''}`}>
+                                <span>{task.title}</span>
+                                {task.created_at && (
+                                    <span className="text-xs text-gray-500 no-underline">
+                                        {new Date(task.created_at).toLocaleString()}
+                                    </span>
+                                )}
                             </button>
                             <Button
                             onClick={() => onNavigateToDetails(task)} 

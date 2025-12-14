@@ -7,64 +7,84 @@ import Title from "./components/Title";
 
 function App() {
   // States (Estado)
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [taskToDelete, setTaskToDelete] = useState(null);
 
+  const [tasks, setTasks] = useState([]);
 
-  const [tasks, setTasks] = useState(JSON.parse(localStorage.getItem("tasks")) || []);
+  // Pega a URL da API das variáveis de ambiente ou usa localhost como fallback
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+  // Carregar tarefas da API ao iniciar
   useEffect(() => {
-    localStorage.setItem("tasks", JSON.stringify(tasks));
-  }, [tasks]);
-
-
-  // Quando passamos a array de dependências vazia, o useEffect só é executado uma vez, quando o componente é montado.
- useEffect(() => {
-  // async function fetchInitialTasks() {
-  //   const response = await fetch(
-  //     "https://jsonplaceholder.typicode.com/todos?_limit=10"
-  //   );
-  //   if (!response.ok) {
-  //     throw new Error("Failed to fetch tasks");
-  //   }
-  //   const data = await response.json();
-  //   setTasks(data)
-  //   console.log(data);
-  // }
-
-  // fetchInitialTasks();
-}, []);
+    async function fetchTasks() {
+      try {
+        const response = await fetch(`${API_URL}/tasks`);
+        const data = await response.json();
+        setTasks(data);
+      } catch (error) {
+        console.error("Erro ao buscar tarefas:", error);
+      }
+    }
+    fetchTasks();
+  }, []);
 
   
-  function onTaskClick(taskId) {
-    const updatedTasks = tasks.map((task) => {
-      if (task.id === taskId) {
-        return {...task, isCompleted: !task.isCompleted };
+  async function onTaskClick(taskId) {
+    try {
+      // Chama a API para atualizar no banco
+      await fetch(`${API_URL}/tasks/${taskId}/toggle`, {
+        method: "PATCH",
+      });
+
+      // Atualiza a interface localmente
+      const updatedTasks = tasks.map((task) => {
+        if (task.id === taskId) {
+          return { ...task, isCompleted: !task.isCompleted };
+        }
+        return task;
+      });
+      setTasks(updatedTasks);
+    } catch (error) {
+      console.error("Erro ao atualizar tarefa:", error);
+    }
   }
-  return task;
-    });
-    setTasks(updatedTasks);
+
+
+  async function handleDelete(taskId) {
+    try {
+      // Chama a API para deletar
+      await fetch(`${API_URL}/tasks/${taskId}`, {
+        method: "DELETE",
+      });
+
+      // Remove da lista local
+      setTasks((prevTasks) => prevTasks.filter((task) => task.id !== taskId));
+    } catch (error) {
+      console.error("Erro ao deletar tarefa:", error);
+    }
   }
 
 
-  function handleDelete(taskId) {
-  setTasks(prevTasks =>
-    prevTasks.filter(task => task.id !== taskId)
-  );
-  }
 
+  async function SubmitTask(title, description) {
+    try {
+      const response = await fetch(`${API_URL}/tasks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title,
+          description,
+          created_at : new Date().toISOString(),
+          isCompleted: false,
+        }),
+      });
 
-
-  function SubmitTask(title, description) {
-    const newTask = {
-      id: Date.now(),
-      title,
-      description,
-      isCompleted: false,
-      createdAt: new Date()
-    };
-    setTasks((prevTasks) => [...prevTasks, newTask]);
-    console.log("Task added:", newTask.id, newTask.title, newTask.description, newTask.createdAt);
+      const newTask = await response.json();
+      setTasks((prevTasks) => [...prevTasks, newTask]);
+    } catch (error) {
+      console.error("Erro ao criar tarefa:", error);
+    }
   }
 
 
