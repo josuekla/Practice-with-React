@@ -1,92 +1,133 @@
 from fastapi import FastAPI, HTTPException, Depends
-from sqlmodel import SQLModel, Field, Session, create_engine, select
-from typing import List, Optional
-from datetime import datetime
-from zoneinfo import ZoneInfo
 from fastapi.middleware.cors import CORSMiddleware
+from typing import List, Optional
 import os
-
-# --- Configuração do Banco de Dados ---
-# Supabase usa DATABASE_URL, Vercel usa POSTGRES_URL
-DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
-
-if not DATABASE_URL:
-    raise Exception("DATABASE_URL ou POSTGRES_URL não está configurada! Verifique as variáveis de ambiente.")
-
-# Ajuste necessário (alguns provedores usam postgres:// em vez de postgresql://)
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
-# Adiciona parâmetros de SSL para Supabase (necessário para conexão segura)
-if "sslmode" not in DATABASE_URL:
-    DATABASE_URL += "?sslmode=require"
-
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-
-def create_db_and_tables():
-    SQLModel.metadata.create_all(engine)
-
-def get_session():
-    with Session(engine) as session:
-        yield session
 
 app = FastAPI()
 
-# Criar tabelas na primeira requisição
-@app.on_event("startup")
-def on_startup():
-    create_db_and_tables()
-
-# Configuração de CORS - Permite todos os domínios da Vercel
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://practice-with-react-uqap.vercel.app",
-    "https://*.vercel.app",  # Permite qualquer subdomínio da Vercel
-]
-
+# Configuração de CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Em produção, especifique apenas os domínios necessários
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- Modelos de Dados (SQLModel) ---
+# --- Configuração do Banco de Dados (Lazy Loading) ---
+engine = None
+DATABASE_URL = None
+
+def get_engine():
+    global engine, DATABASE_URL
+    if engine is None:
+        from sqlmodel import create_engine
+        
+        DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+        
+        if not DATABASE_URL:
+            raise Exception("DATABASE_URL não configurada!")
+        
+        # Corrige protocolo para SQLAlchemy
+        if DATABASE_URL.startswith("postgres://"):
+            DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+        
+        # SSL obrigatório para Supabase
+        if "sslmode" not in DATABASE_URL:
+            if "?" in DATABASE_URL:
+                DATABASE_URL += "&sslmode=require"
+            else:
+                DATABASE_URL += "?sslmode=require"
+        
+        engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    return engine
+
+def get_session():
+    from sqlmodel import Session
+    with Session(get_engine()) as session:
+        yield session
+
+# --- Modelos de Dados ---
+from sqlmodel import SQLModel, Field
+from datetime import datetime
+
 def get_brazil_time():
-    return datetime.now(ZoneInfo("America/Sao_Paulo"))
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("America/Sao_Paulo"))
+    except:
+        return datetime.utcnow()
 
 class Task(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str
     description: str
     isCompleted: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=get_brazil_time, nullable=False)
+    created_at: datetime = Field(default_factory=get_brazil_time)
 
 class TaskCreate(SQLModel):
     title: str
     description: str
 
-# --- Rotas (Endpoints) ---
+# --- Criar tabelas ---
+tables_created = False
+
+def ensure_tables():
+    global tables_created
+    if not tables_created:
+        SQLModel.metadata.create_all(get_engine())
+        tables_created = True
+
+# --- Rotas ---
 
 @app.get("/")
 @app.get("/api")
 def read_root():
-    return {"message": "API de Tarefas rodando na Vercel!"}
+    """Rota de teste - verifica se a API está rodando"""
+    db_status = "não configurado"
+    try:
+        url = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+        if url:
+            db_status = "configurado ✓"
+    except:
+        pass
+    return {
+        "message": "API de Tarefas rodando!",
+        "database": db_status
+    }
+
+@app.get("/api/health")
+@app.get("/health")
+def health_check():
+    """Verifica conexão com banco"""
+    try:
+        from sqlmodel import Session, text
+        with Session(get_engine()) as session:
+            session.exec(text("SELECT 1"))
+        return {"status": "ok", "database": "connected"}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
 
 @app.get("/api/tasks", response_model=List[Task])
 @app.get("/tasks", response_model=List[Task])
-def get_tasks(session: Session = Depends(get_session)):
-    """Retorna todas as tarefas do banco"""
+def get_tasks(session = Depends(get_session)):
+    """Retorna todas as tarefas"""
+    from sqlmodel import select
+    ensure_tables()
     tasks = session.exec(select(Task)).all()
     return tasks
 
 @app.post("/api/tasks", response_model=Task)
 @app.post("/tasks", response_model=Task)
-def create_task(task_in: TaskCreate, session: Session = Depends(get_session)):
-    """Cria uma nova tarefa no banco"""
-    task = Task.model_validate(task_in)
+def create_task(task_in: TaskCreate, session = Depends(get_session)):
+    """Cria uma nova tarefa"""
+    ensure_tables()
+    task = Task(
+        title=task_in.title,
+        description=task_in.description,
+        isCompleted=False,
+        created_at=get_brazil_time()
+    )
     session.add(task)
     session.commit()
     session.refresh(task)
@@ -94,24 +135,24 @@ def create_task(task_in: TaskCreate, session: Session = Depends(get_session)):
 
 @app.delete("/api/tasks/{task_id}")
 @app.delete("/tasks/{task_id}")
-def delete_task(task_id: int, session: Session = Depends(get_session)):
+def delete_task(task_id: int, session = Depends(get_session)):
     """Deleta uma tarefa pelo ID"""
+    ensure_tables()
     task = session.get(Task, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Tarefa não encontrada")
-    
     session.delete(task)
     session.commit()
     return {"message": "Tarefa deletada com sucesso"}
 
 @app.patch("/api/tasks/{task_id}/toggle")
 @app.patch("/tasks/{task_id}/toggle")
-def toggle_task(task_id: int, session: Session = Depends(get_session)):
+def toggle_task(task_id: int, session = Depends(get_session)):
     """Marca/Desmarca uma tarefa como completa"""
+    ensure_tables()
     task = session.get(Task, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Tarefa não encontrada")
-    
     task.isCompleted = not task.isCompleted
     session.add(task)
     session.commit()
